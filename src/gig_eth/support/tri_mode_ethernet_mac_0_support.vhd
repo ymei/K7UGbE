@@ -335,7 +335,7 @@ begin
    -- mode of the IDELAY.
    tri_mode_ethernet_mac_idelayctrl_common_i : IDELAYCTRL
     generic map (
-      SIM_DEVICE => "7SERIES"
+      SIM_DEVICE => "ULTRASCALE"
     )
     port map (
       RDY                    => idelayctrl_ready,

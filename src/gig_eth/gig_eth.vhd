@@ -147,14 +147,14 @@ entity gig_eth is
       -- PHY interface
       phy_resetn                    : out std_logic;
 
-      -- RGMII Interface
+      -- SGMII Interface
       ------------------
-      rgmii_txd                     : out std_logic_vector(3 downto 0);
-      rgmii_tx_ctl                  : out std_logic;
-      rgmii_txc                     : out std_logic;
-      rgmii_rxd                     : in  std_logic_vector(3 downto 0);
-      rgmii_rx_ctl                  : in  std_logic;
-      rgmii_rxc                     : in  std_logic;
+      sgmii_clk_p                   : in  std_logic;
+      sgmii_clk_n                   : in  std_logic;
+      sgmii_rx_p                    : in  std_logic;
+      sgmii_rx_n                    : in  std_logic;
+      sgmii_tx_p                    : out std_logic;
+      sgmii_tx_n                    : out std_logic;
 
       -- MDIO Interface
       -----------------
