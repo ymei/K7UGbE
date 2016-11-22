@@ -85,6 +85,21 @@ ARCHITECTURE wrapper OF gig_eth IS
   ATTRIBUTE DowngradeIPIdentifiedWarnings            : string;
   ATTRIBUTE DowngradeIPIdentifiedWarnings OF wrapper : ARCHITECTURE IS "yes";
 
+  COMPONENT GlobalResetter
+    GENERIC (
+      CLK_RESET_DELAY_CNT : integer := 10000;
+      GBL_RESET_DELAY_CNT : integer := 100;
+      CNT_RANGE_HIGH      : integer := 16383
+    );
+    PORT (
+      FORCE_RST  : IN  std_logic;
+      CLK        : IN  std_logic;       -- system clock
+      DCM_LOCKED : IN  std_logic;
+      CLK_RST    : OUT std_logic;
+      GLOBAL_RST : OUT std_logic
+    );
+  END COMPONENT;
+
   COMPONENT COM5402 IS
     GENERIC (
       CLK_FREQUENCY   : integer               := 56;
@@ -378,7 +393,6 @@ ARCHITECTURE wrapper OF gig_eth IS
   ------------------------------------------------------------------------------
   component tri_mode_ethernet_mac_0_example_design_resets is
     port (
-     sys_clk                    : in std_logic;
      -- clocks
      s_axi_aclk                 : in std_logic;
      gtx_clk                    : in std_logic;
@@ -388,9 +402,8 @@ ARCHITECTURE wrapper OF gig_eth IS
      rx_reset                   : in std_logic;
      tx_reset                   : in std_logic;
      dcm_locked                 : in std_logic;
-     -- asynchronous reset output
-     glbl_rst_intn              : out std_logic;
      -- synchronous reset outputs
+     glbl_rst_intn              : out std_logic;
      gtx_resetn                 : out std_logic := '0';
      s_axi_resetn               : out std_logic := '0';
      phy_resetn                 : out std_logic;
@@ -460,7 +473,8 @@ ARCHITECTURE wrapper OF gig_eth IS
   signal sgmii_clk_r                        : std_logic;
   signal sgmii_clk_f                        : std_logic;
   -- resets (and reset generation)
-  signal phy_resetn_int                     : std_logic;  
+  signal grst                               : std_logic;
+  signal gclk_rst                           : std_logic;
   signal reset_error                        : std_logic;
   signal s_axi_resetn                       : std_logic;
   signal chk_resetn                         : std_logic;
@@ -622,31 +636,37 @@ BEGIN
   tx_fifo_clock <= gtx_clk_bufg;
   rx_fifo_clock <= gtx_clk_bufg;
 
+  g_resets : GlobalResetter
+    PORT MAP (
+      FORCE_RST  => glbl_rst,
+      CLK        => SYS_CLK,
+      DCM_LOCKED => dcm_locked,
+      CLK_RST    => gclk_rst,
+      GLOBAL_RST => grst
+    );
+  phy_resetn <= NOT gclk_rst;
   ------------------------------------------------------------------------------
   -- Generate resets required for the fifo side signals etc
   ------------------------------------------------------------------------------
 
   example_resets : tri_mode_ethernet_mac_0_example_design_resets
     port map (
-      sys_clk          => SYS_CLK,
       -- clocks
       s_axi_aclk       => s_axi_aclk,
       gtx_clk          => gtx_clk_bufg,
       -- asynchronous resets
-      glbl_rst         => glbl_rst,
+      glbl_rst         => grst,
       reset_error      => reset_error,
       rx_reset         => rx_reset,
       tx_reset         => tx_reset,
       dcm_locked       => dcm_locked,
-      -- asynchronous reset output
-      glbl_rst_intn    => glbl_rst_intn,
       -- synchronous reset outputs
+      glbl_rst_intn    => glbl_rst_intn,
       gtx_resetn       => gtx_resetn,
       s_axi_resetn     => s_axi_resetn,
       phy_resetn       => OPEN, -- phy_resetn,
       chk_resetn       => chk_resetn
     );
-  phy_resetn   <= NOT glbl_rst;
   glbl_rst_int <= NOT glbl_rst_intn;
   reset_error  <= '0';
 
@@ -813,11 +833,11 @@ BEGIN
       an_adv_config_vector => an_adv_config_vector,  -- Alternate interface to program REG4 (AN ADV)
       an_restart_config    => an_restart_config,  -- Alternate signal to modify AN restart bit in REG0
       -- General IO's
-      speed_is_10_100      => '0',
-      speed_is_100         => '0',
+      speed_is_10_100      => speed_is_10_100,
+      speed_is_100         => speed_is_100,
       ---------------
       status_vector        => status_vector, -- Core status.
-      reset                => glbl_rst, -- _int,  -- Asynchronous reset for entire core.
+      reset                => gclk_rst,      -- Asynchronous reset for entire core.
       signal_detect        => signal_detect  -- Input from PMD to indicate presence of optical input.
     );
   signal_detect        <= '1';

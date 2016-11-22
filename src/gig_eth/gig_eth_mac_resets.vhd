@@ -56,7 +56,6 @@ use ieee.numeric_std.all;
 
 entity tri_mode_ethernet_mac_0_example_design_resets is
    port (
-   sys_clk                    : in std_logic;
    -- clocks
    s_axi_aclk                 : in std_logic;
    gtx_clk                    : in std_logic;
@@ -122,7 +121,7 @@ architecture RTL of tri_mode_ethernet_mac_0_example_design_resets is
     signal dcm_locked_sync         : std_logic;
     signal glbl_rst_int            : std_logic;
     signal phy_resetn_int          : std_logic;
-    signal phy_reset_count         : unsigned(6 downto 0) := (others => '0');
+    signal phy_reset_count         : unsigned(5 downto 0) := (others => '0');
 
 begin
 
@@ -246,16 +245,16 @@ begin
    -----------------
    -- PHY reset
    -- the phy reset output (active low) needs to be held for at least 10x25MHZ cycles
-   -- this is derived using the 300MHz available and a 7 bit counter
-   phy_reset_p : process(sys_clk)
+   -- this is derived using the 125MHz available and a 6 bit counter
+   phy_reset_p : process(gtx_clk)
    begin
-     if rising_edge(sys_clk) then
-       if glbl_rst = '1' then
+     if gtx_clk'event and gtx_clk = '1' then
+       if glbl_rst_int = '1' then
          phy_resetn_int  <= '0';
          phy_reset_count <= (others => '0');
        else
-         if phy_reset_count /= "1111111" then
-            phy_reset_count <= phy_reset_count + "0000001";
+         if phy_reset_count /= "111111" then
+            phy_reset_count <= phy_reset_count + "000001";
          else
             phy_resetn_int <= '1';
          end if;
