@@ -2,3 +2,4 @@ top
 vivado.*
 vivado_*
 .Xil
+*.o
