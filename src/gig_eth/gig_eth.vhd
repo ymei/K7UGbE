@@ -37,9 +37,7 @@ ENTITY gig_eth IS
     glbl_rst             : IN    std_logic;
     -- clocks
     SYS_CLK              : IN    std_logic;
-    gtrefclk_p           : IN    std_logic;  -- 125MHz very high quality clock for GT transceiver
-    gtrefclk_n           : IN    std_logic;
-    gtrefclk_out         : OUT   std_logic;  -- routed back out, single-ended
+    sgmii125_clk         : OUT   std_logic;  -- routed back out, single-ended
     -- PHY interface
     phy_resetn           : OUT   std_logic;
     -- SGMII interface
@@ -54,6 +52,8 @@ ENTITY gig_eth IS
     -----------------
     mdio                 : INOUT std_logic;
     mdc                  : OUT   std_logic;
+    -- status
+    status               : OUT   std_logic_vector(31 DOWNTO 0);
     -- TCP
     MAC_ADDR             : IN    std_logic_vector(47 DOWNTO 0);
     IPv4_ADDR            : IN    std_logic_vector(31 DOWNTO 0);
@@ -378,6 +378,7 @@ ARCHITECTURE wrapper OF gig_eth IS
   ------------------------------------------------------------------------------
   component tri_mode_ethernet_mac_0_example_design_resets is
     port (
+     sys_clk                    : in std_logic;
      -- clocks
      s_axi_aclk                 : in std_logic;
      gtx_clk                    : in std_logic;
@@ -386,6 +387,7 @@ ARCHITECTURE wrapper OF gig_eth IS
      reset_error                : in std_logic;
      rx_reset                   : in std_logic;
      tx_reset                   : in std_logic;
+     dcm_locked                 : in std_logic;
      -- asynchronous reset output
      glbl_rst_intn              : out std_logic;
      -- synchronous reset outputs
@@ -407,8 +409,8 @@ ARCHITECTURE wrapper OF gig_eth IS
       txn                  : OUT std_logic;  -- Differential -ve of serial transmission from PMA to PMD.
       rxp                  : IN  std_logic;  -- Differential +ve for serial reception from PMD to PMA.
       rxn                  : IN  std_logic;  -- Differential -ve for serial reception from PMD to PMA.
-      refclk125_p          : IN  std_logic;
-      refclk125_n          : IN  std_logic;
+      refclk625_p          : IN  std_logic;
+      refclk625_n          : IN  std_logic;
       -- GMII Interface
       -----------------
       sgmii_clk_r          : OUT std_logic;  -- Clock for client MAC (125Mhz, 12.5MHz or 1.25MHz).
@@ -440,7 +442,7 @@ ARCHITECTURE wrapper OF gig_eth IS
       ---------------
       status_vector        : OUT std_logic_vector(15 DOWNTO 0);  -- Core status.
       reset                : IN  std_logic;  -- Asynchronous reset for entire core.
-      signal_detect        : IN  std_logic  -- Input from PMD to indicate presence of optical input.
+      signal_detect        : IN  std_logic   -- Input from PMD to indicate presence of optical input.
     );
   END COMPONENT;
 
@@ -455,12 +457,6 @@ ARCHITECTURE wrapper OF gig_eth IS
   signal s_axi_aclk                         : std_logic;
   signal rx_mac_aclk                        : std_logic;
   signal tx_mac_aclk                        : std_logic;
-  --
-  signal userclk                            : std_logic;
-  signal userclk2                           : std_logic;
-  signal rxuserclk                          : std_logic;
-  signal rxuserclk2                         : std_logic;
-  signal sgmii_clk                          : std_logic;
   signal sgmii_clk_r                        : std_logic;
   signal sgmii_clk_f                        : std_logic;
   -- resets (and reset generation)
@@ -617,32 +613,22 @@ BEGIN
   activity_flash  <= int_activity_flash;
   activity_flashn <= NOT int_activity_flash;
   mac_speed       <= "11";
-
-  ----------------------------------------------------------------------------
-  -- Clock logic to generate required clocks from the 200MHz on board
-  -- if 125MHz is available directly this can be removed
-  ----------------------------------------------------------------------------
-  gtrefclk_out <= gtx_clk;
-  gtx_clk_bufg <= gtx_clk;
-  s_axi_aclk   <= gtx_clk;
+  --
+  gtx_clk_bufg    <= gtx_clk;
+  s_axi_aclk      <= gtx_clk;
+  sgmii125_clk    <= gtx_clk;
 
   -- generate the user side clocks for the axi fifos
   tx_fifo_clock <= gtx_clk_bufg;
   rx_fifo_clock <= gtx_clk_bufg;
 
-  -- not used
-  sgmii_clk_ibuf : IBUFGDS
-    PORT MAP (
-      O  => sgmii_clk,
-      I  => sgmii_clk_p,
-      IB => sgmii_clk_n
-    );
   ------------------------------------------------------------------------------
   -- Generate resets required for the fifo side signals etc
   ------------------------------------------------------------------------------
 
   example_resets : tri_mode_ethernet_mac_0_example_design_resets
     port map (
+      sys_clk          => SYS_CLK,
       -- clocks
       s_axi_aclk       => s_axi_aclk,
       gtx_clk          => gtx_clk_bufg,
@@ -651,14 +637,16 @@ BEGIN
       reset_error      => reset_error,
       rx_reset         => rx_reset,
       tx_reset         => tx_reset,
+      dcm_locked       => dcm_locked,
       -- asynchronous reset output
       glbl_rst_intn    => glbl_rst_intn,
       -- synchronous reset outputs
       gtx_resetn       => gtx_resetn,
       s_axi_resetn     => s_axi_resetn,
-      phy_resetn       => phy_resetn,
+      phy_resetn       => OPEN, -- phy_resetn,
       chk_resetn       => chk_resetn
     );
+  phy_resetn   <= NOT glbl_rst;
   glbl_rst_int <= NOT glbl_rst_intn;
   reset_error  <= '0';
 
@@ -799,8 +787,8 @@ BEGIN
       rxp                  => sgmii_rx_p,  -- Differential +ve for serial reception from PMD to PMA.
       rxn                  => sgmii_rx_n,  -- Differential -ve for serial reception from PMD to PMA.
       --
-      refclk125_p          => gtrefclk_p,
-      refclk125_n          => gtrefclk_n,
+      refclk625_p          => sgmii_clk_p,
+      refclk625_n          => sgmii_clk_n,
       mmcm_locked_out      => dcm_locked,
       rst_125_out          => OPEN,
       clk125_out           => gtx_clk,
@@ -825,18 +813,19 @@ BEGIN
       an_adv_config_vector => an_adv_config_vector,  -- Alternate interface to program REG4 (AN ADV)
       an_restart_config    => an_restart_config,  -- Alternate signal to modify AN restart bit in REG0
       -- General IO's
-      speed_is_10_100      => speed_is_10_100,
-      speed_is_100         => speed_is_100,
+      speed_is_10_100      => '0',
+      speed_is_100         => '0',
       ---------------
       status_vector        => status_vector, -- Core status.
-      reset                => glbl_rst_int,  -- Asynchronous reset for entire core.
+      reset                => glbl_rst, -- _int,  -- Asynchronous reset for entire core.
       signal_detect        => signal_detect  -- Input from PMD to indicate presence of optical input.
     );
   signal_detect        <= '1';
-  configuration_vector <= "00000";  -- [4]AN enable, [3]Isolate disabled, [2]Powerdowndisabled,
+  configuration_vector <= "10000";  -- [4]AN enable, [3]Isolate disabled, [2]Powerdowndisabled,
                                     -- [1]loopback disabled, [0]Unidirectional disabled
   an_adv_config_vector <= "0000000000100001";
   an_restart_config    <= '1';
+  status               <= "000000000000000" & dcm_locked & status_vector;
 
   ---------------------------------------------< tcp_server
   PROCESS (gtx_clk_bufg) IS

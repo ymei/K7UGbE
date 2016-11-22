@@ -7,7 +7,7 @@
 * Standard SGMII
 * Core Functiionality
 ** LVDS Serial
-** Ref Clk 125MHz
+** Ref Clk 625MHz
 * Management Options
 ** NO MDIO
 ** Yes Auto Negotiation
@@ -21,7 +21,7 @@
 * Interface
 ** PHY Interface: internal
 ** MAC Speed: 1000Mbps
-** Management Type: AXI4-Lite
+** Management Type: AXI4-Lite, Frequency 125.00MHz
 ** YES MDIO and IO Buffers
 * Features
 ** Check Statistics (and Reset) only

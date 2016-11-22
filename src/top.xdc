@@ -1,10 +1,12 @@
 
 # 300MHz onboard diff clock
-create_clock -name system_clock -period 3.3333333333333 [get_ports {SYS_CLK_P}]
+create_clock -name system_clock -period 3.333 [get_ports {SYS_CLK_P}]
 # 156.25MHz
 create_clock -name user_clock   -period 6.4 [get_ports {USER_CLK_P}]
 # 125MHz
 create_clock -name sys125_clock -period 8.0 [get_ports {SYS125_CLK_P}]
+# 625MHz
+create_clock -name sgmii625_clock -period 1.6 [get_ports {SGMII_CLK_P}]
 
 # SYS_CLK has external 100Ohm TERM
 # IO_L12P_T1U_N10_GC_45_AK17
@@ -30,6 +32,9 @@ set_property IOSTANDARD LVDS_25 [get_ports {USER_CLK_N}]
 set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks system_clock] -group [get_clocks -include_generated_clocks sys125_clock]
 set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks system_clock] -group [get_clocks -include_generated_clocks user_clock]
 set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks user_clock] -group [get_clocks -include_generated_clocks sys125_clock]
+set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks system_clock] -group [get_clocks -include_generated_clocks sgmii625_clock]
+set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks sys125_clock] -group [get_clocks -include_generated_clocks sgmii625_clock]
+set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks user_clock] -group [get_clocks -include_generated_clocks sgmii625_clock]
 # seems we ran out of bufg's
 # set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets global_clock_reset_inst/I]
 # false path of resetter
@@ -40,101 +45,101 @@ set_false_path -from [get_pins -of_objects [get_cells -hierarchical -filter {NAM
 # set_property VCCAUX_IO DONTCARE [get_ports {SYS_RST}]
 set_property SLEW SLOW [get_ports {SYS_RST}]
 set_property IOSTANDARD LVCMOS18 [get_ports {SYS_RST}]
-set_property LOC AN8 [get_ports {SYS_RST}]
+set_property PACKAGE_PIN AN8 [get_ports {SYS_RST}]
 
 # LED:
 # Bank: - GPIO_LED_0_LS
 set_property DRIVE 12 [get_ports {LED8Bit[0]}]
 set_property SLEW SLOW [get_ports {LED8Bit[0]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {LED8Bit[0]}]
-set_property LOC AP8 [get_ports {LED8Bit[0]}]
+set_property PACKAGE_PIN AP8 [get_ports {LED8Bit[0]}]
 
 # Bank: - GPIO_LED_1_LS
 set_property DRIVE 12 [get_ports {LED8Bit[1]}]
 set_property SLEW SLOW [get_ports {LED8Bit[1]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {LED8Bit[1]}]
-set_property LOC H23 [get_ports {LED8Bit[1]}]
+set_property PACKAGE_PIN H23 [get_ports {LED8Bit[1]}]
 
 # Bank: - GPIO_LED_2_LS
 set_property DRIVE 12 [get_ports {LED8Bit[2]}]
 set_property SLEW SLOW [get_ports {LED8Bit[2]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {LED8Bit[2]}]
-set_property LOC P20 [get_ports {LED8Bit[2]}]
+set_property PACKAGE_PIN P20 [get_ports {LED8Bit[2]}]
 
 # Bank: - GPIO_LED_3_LS
 set_property DRIVE 12 [get_ports {LED8Bit[3]}]
 set_property SLEW SLOW [get_ports {LED8Bit[3]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {LED8Bit[3]}]
-set_property LOC P21 [get_ports {LED8Bit[3]}]
+set_property PACKAGE_PIN P21 [get_ports {LED8Bit[3]}]
 
 # Bank: - GPIO_LED_4_LS
 set_property DRIVE 12 [get_ports {LED8Bit[4]}]
 set_property SLEW SLOW [get_ports {LED8Bit[4]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {LED8Bit[4]}]
-set_property LOC N22 [get_ports {LED8Bit[4]}]
+set_property PACKAGE_PIN N22 [get_ports {LED8Bit[4]}]
 
 # Bank: - GPIO_LED_5_LS
 set_property DRIVE 12 [get_ports {LED8Bit[5]}]
 set_property SLEW SLOW [get_ports {LED8Bit[5]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {LED8Bit[5]}]
-set_property LOC M22 [get_ports {LED8Bit[5]}]
+set_property PACKAGE_PIN M22 [get_ports {LED8Bit[5]}]
 
 # Bank: - GPIO_LED_6_LS
 set_property DRIVE 12 [get_ports {LED8Bit[6]}]
 set_property SLEW SLOW [get_ports {LED8Bit[6]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {LED8Bit[6]}]
-set_property LOC R23 [get_ports {LED8Bit[6]}]
+set_property PACKAGE_PIN R23 [get_ports {LED8Bit[6]}]
 
 # Bank: - GPIO_LED_7_LS
 set_property DRIVE 12 [get_ports {LED8Bit[7]}]
 set_property SLEW SLOW [get_ports {LED8Bit[7]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {LED8Bit[7]}]
-set_property LOC P23 [get_ports {LED8Bit[7]}]
+set_property PACKAGE_PIN P23 [get_ports {LED8Bit[7]}]
 
 # GPIO_DIP_SW0
 set_property SLEW SLOW [get_ports {DIPSw4Bit[0]}]
 set_property IOSTANDARD LVCMOS12 [get_ports {DIPSw4Bit[0]}]
-set_property LOC AN16 [get_ports {DIPSw4Bit[0]}]
+set_property PACKAGE_PIN AN16 [get_ports {DIPSw4Bit[0]}]
 
 # GPIO_DIP_SW1
 set_property SLEW SLOW [get_ports {DIPSw4Bit[1]}]
 set_property IOSTANDARD LVCMOS12 [get_ports {DIPSw4Bit[1]}]
-set_property LOC AN19 [get_ports {DIPSw4Bit[1]}]
+set_property PACKAGE_PIN AN19 [get_ports {DIPSw4Bit[1]}]
 
 # GPIO_DIP_SW2
 set_property SLEW SLOW [get_ports {DIPSw4Bit[2]}]
 set_property IOSTANDARD LVCMOS12 [get_ports {DIPSw4Bit[2]}]
-set_property LOC AP18 [get_ports {DIPSw4Bit[2]}]
+set_property PACKAGE_PIN AP18 [get_ports {DIPSw4Bit[2]}]
 
 # GPIO_DIP_SW3
 set_property SLEW SLOW [get_ports {DIPSw4Bit[3]}]
 set_property IOSTANDARD LVCMOS12 [get_ports {DIPSw4Bit[3]}]
-set_property LOC AN14 [get_ports {DIPSw4Bit[3]}]
+set_property PACKAGE_PIN AN14 [get_ports {DIPSw4Bit[3]}]
 
 # GPIO_SW_N : SW10
 set_property SLEW SLOW [get_ports {BTN5Bit[0]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {BTN5Bit[0]}]
-set_property LOC AD10 [get_ports {BTN5Bit[0]}]
+set_property PACKAGE_PIN AD10 [get_ports {BTN5Bit[0]}]
 
 # GPIO_SW_E : SW9
 set_property SLEW SLOW [get_ports {BTN5Bit[1]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {BTN5Bit[1]}]
-set_property LOC AE8 [get_ports {BTN5Bit[1]}]
+set_property PACKAGE_PIN AE8 [get_ports {BTN5Bit[1]}]
 
 # GPIO_SW_S : SW8
 set_property SLEW SLOW [get_ports {BTN5Bit[2]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {BTN5Bit[2]}]
-set_property LOC AF8 [get_ports {BTN5Bit[2]}]
+set_property PACKAGE_PIN AF8 [get_ports {BTN5Bit[2]}]
 
 # GPIO_SW_C : SW7
 set_property SLEW SLOW [get_ports {BTN5Bit[3]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {BTN5Bit[3]}]
-set_property LOC AE10 [get_ports {BTN5Bit[3]}]
+set_property PACKAGE_PIN AE10 [get_ports {BTN5Bit[3]}]
 
 # GPIO_SW_W : SW6
 set_property SLEW SLOW [get_ports {BTN5Bit[4]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {BTN5Bit[4]}]
-set_property LOC AF9 [get_ports {BTN5Bit[4]}]
+set_property PACKAGE_PIN AF9 [get_ports {BTN5Bit[4]}]
 
 #>-- LEDs, buttons and switches -->
 

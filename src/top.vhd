@@ -39,11 +39,11 @@ ENTITY top IS
   );
   PORT (
     SYS_RST      : IN    std_logic;
-    SYS_CLK_P    : IN    std_logic;
+    SYS_CLK_P    : IN    std_logic;     -- 300MHz
     SYS_CLK_N    : IN    std_logic;
-    SYS125_CLK_P : IN    std_logic;
+    SYS125_CLK_P : IN    std_logic;     -- 125MHz
     SYS125_CLK_N : IN    std_logic;
-    USER_CLK_P   : IN    std_logic;  -- 156.250 MHz
+    USER_CLK_P   : IN    std_logic;     -- 156.250MHz
     USER_CLK_N   : IN    std_logic;
     --
     LED8Bit      : OUT   std_logic_vector(7 DOWNTO 0);
@@ -58,7 +58,7 @@ ENTITY top IS
     PHY_RESET_N  : OUT   std_logic;
     MDIO         : INOUT std_logic;
     MDC          : OUT   std_logic;
-    SGMII_CLK_P  : IN    std_logic;
+    SGMII_CLK_P  : IN    std_logic;     -- 625MHz
     SGMII_CLK_N  : IN    std_logic;
     SGMII_RX_P   : IN    std_logic;
     SGMII_RX_N   : IN    std_logic;
@@ -90,9 +90,7 @@ ARCHITECTURE Behavioral OF top IS
       GLBL_RST             : IN    std_logic;
       -- clocks
       SYS_CLK              : IN    std_logic;
-      GTREFCLK_P           : IN    std_logic;  -- 125 MHz very high quality clock for GT transceiver
-      GTREFCLK_N           : IN    std_logic;
-      GTREFCLK_OUT         : OUT   std_logic;  -- routed back OUT, single-ended
+      SGMII125_CLK         : OUT   std_logic;  -- routed back OUT, single-ended
       -- PHY interface
       PHY_RESETN           : OUT   std_logic;
       -- SGMII interface
@@ -105,6 +103,8 @@ ARCHITECTURE Behavioral OF top IS
       -- MDIO interface
       MDIO                 : INOUT std_logic;
       MDC                  : OUT   std_logic;
+      -- status
+      STATUS               : OUT   std_logic_vector(31 DOWNTO 0);
       -- TCP
       MAC_ADDR             : IN    std_logic_vector(47 DOWNTO 0);
       IPv4_ADDR            : IN    std_logic_vector(31 DOWNTO 0);
@@ -257,7 +257,8 @@ ARCHITECTURE Behavioral OF top IS
   SIGNAL clk_200MHz                        : std_logic;
   SIGNAL clk_250MHz                        : std_logic;
   SIGNAL clk156                            : std_logic;
-  SIGNAL user_clk                         : std_logic;
+  SIGNAL user_clk                          : std_logic;
+  SIGNAL sgmii125_clk                      : std_logic;
   --
   SIGNAL control_clk                       : std_logic;
   SIGNAL control_fifo_q                    : std_logic_vector(35 DOWNTO 0);
@@ -298,17 +299,18 @@ ARCHITECTURE Behavioral OF top IS
   SIGNAL gig_eth_rx_fifo_q                 : std_logic_vector(31 DOWNTO 0);
   SIGNAL gig_eth_rx_fifo_rden              : std_logic;
   SIGNAL gig_eth_rx_fifo_empty             : std_logic;
+  SIGNAL gig_eth_status                    : std_logic_vector(31 DOWNTO 0);
   ---------------------------------------------> gig_eth
   ---------------------------------------------< debug
-  SIGNAL dbg_ila_probe0                           : std_logic_vector (63 DOWNTO 0);
-  SIGNAL dbg_ila_probe1                           : std_logic_vector (79 DOWNTO 0);
-  SIGNAL dbg_ila_probe2                           : std_logic_vector (79 DOWNTO 0);
-  SIGNAL dbg_ila_probe3                           : std_logic_vector (2047 DOWNTO 0);
-  SIGNAL dbg_vio_probe_out0                       : std_logic_vector (63 DOWNTO 0);
-  SIGNAL dbg_ila1_probe0                          : std_logic_vector (15 DOWNTO 0);
-  SIGNAL dbg_ila1_probe1                          : std_logic_vector (15 DOWNTO 0);
-  ATTRIBUTE mark_debug                            : string;
-  ATTRIBUTE keep                                  : string;
+  SIGNAL dbg_ila_probe0                    : std_logic_vector (63 DOWNTO 0);
+  SIGNAL dbg_ila_probe1                    : std_logic_vector (79 DOWNTO 0);
+  SIGNAL dbg_ila_probe2                    : std_logic_vector (79 DOWNTO 0);
+  SIGNAL dbg_ila_probe3                    : std_logic_vector (2047 DOWNTO 0);
+  SIGNAL dbg_vio_probe_out0                : std_logic_vector (63 DOWNTO 0);
+  SIGNAL dbg_ila1_probe0                   : std_logic_vector (15 DOWNTO 0);
+  SIGNAL dbg_ila1_probe1                   : std_logic_vector (15 DOWNTO 0);
+  ATTRIBUTE mark_debug                     : string;
+  ATTRIBUTE keep                           : string;
   -- ATTRIBUTE mark_debug OF USB_TX                  : SIGNAL IS "true";
   ---------------------------------------------> debug
 
@@ -327,6 +329,15 @@ BEGIN
       CLK_OUT3   => OPEN,
       CLK_OUT4   => clk_250MHz
     );
+  sys125_clk_ibuf : IBUFGDS
+    GENERIC MAP (
+      DIFF_TERM => FALSE                -- external termination available
+    )
+    PORT MAP (
+      O  => sys125_clk,
+      I  => SYS125_CLK_P,
+      IB => SYS125_CLK_N
+    );  
   user_clk_ibuf : IBUFGDS
     GENERIC MAP (
       DIFF_TERM => FALSE                -- external termination available
@@ -383,9 +394,7 @@ BEGIN
         GLBL_RST             => reset,
         -- clocks
         SYS_CLK              => sys_clk,
-        GTREFCLK_P           => SYS125_CLK_P,  -- 125MHz very high quality clock, external 100Ohm termination.
-        GTREFCLK_N           => SYS125_CLK_N,
-        GTREFCLK_OUT         => sys125_clk,    -- routed back out, single-ended        
+        SGMII125_CLK         => sgmii125_clk,    -- routed back out, single-ended        
         -- PHY interface
         PHY_RESETN           => PHY_RESET_N,
         -- SGMII interface
@@ -398,6 +407,8 @@ BEGIN
         -- MDIO interface
         MDIO                 => MDIO,
         MDC                  => MDC,
+        -- status
+        STATUS               => gig_eth_status,
         -- TCP
         MAC_ADDR             => gig_eth_mac_addr,
         IPv4_ADDR            => gig_eth_ipv4_addr,
@@ -449,7 +460,31 @@ BEGIN
   END GENERATE gig_eth_cores;
   ---------------------------------------------> gig_eth
 
-  usr_data_output <= config_reg(7 DOWNTO 0);
+  --PROCESS (sys125_clk, reset) IS
+  --  VARIABLE led_cnt : unsigned(25 DOWNTO 0) := (OTHERS => '0');
+  --BEGIN  -- PROCESS
+  --  IF reset = '1' THEN                 -- asynchronous reset (active high)
+  --    led_cnt := (OTHERS => '0');
+  --  ELSIF rising_edge(sys125_clk) THEN  -- rising clock edge
+  --    led_cnt                     := led_cnt + 1;
+  --    usr_data_output(1 DOWNTO 0) <= std_logic_vector(led_cnt(25-2 DOWNTO 22));
+  --  END IF;
+  --END PROCESS;
+
+  PROCESS (sgmii125_clk, reset) IS
+    VARIABLE led_cnt : unsigned(25 DOWNTO 0) := (OTHERS => '0');
+  BEGIN  -- PROCESS
+    IF reset = '1' THEN                   -- asynchronous reset (active high)
+      led_cnt := (OTHERS => '0');
+    ELSIF rising_edge(sgmii125_clk) THEN  -- rising clock edge
+      led_cnt                     := led_cnt + 1;
+      usr_data_output(1 DOWNTO 0) <= std_logic_vector(led_cnt(25-2 DOWNTO 22));
+    END IF;
+  END PROCESS;
+
+  usr_data_output(7 DOWNTO 2) <= gig_eth_status(16) & gig_eth_status(7) & gig_eth_status(3 DOWNTO 0);
+  -- usr_data_output <= gig_eth_status(15 DOWNTO 8);
+
   led_obufs : FOR i IN 0 TO 7 GENERATE
     led_obuf : OBUF
       PORT MAP (
