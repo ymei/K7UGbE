@@ -126,12 +126,6 @@ architecture rtl of tri_mode_ethernet_mac_0_axi_lite_sm is
                               MDIO_POLL_CHECK,
                               MDIO_1G,
                               MDIO_10_100,
-                              MDIO_RGMII_RD,
-                              MDIO_RGMII_RD_POLL,
-                              MDIO_RGMII,
-                              MDIO_DELAY_RD,
-                              MDIO_DELAY_RD_POLL,
-                              MDIO_DELAY,
                               MDIO_RESTART,
                               MDIO_LOOPBACK,
                               MDIO_STATS,
@@ -205,9 +199,6 @@ architecture rtl of tri_mode_ethernet_mac_0_axi_lite_sm is
    constant PHY_STATUS_REG         : std_logic_vector(7 downto 0) := X"01";
    constant PHY_ABILITY_REG        : std_logic_vector(7 downto 0) := X"04";
    constant PHY_1000BASET_CONTROL_REG : std_logic_vector(7 downto 0) := X"09";
-   -- Non IEEE registers assume the PHY as provided on the Xilinx standard connectivity board i.e SP605
-   constant PHY_MODE_CTL_REG       : std_logic_vector(7 downto 0) := X"14";
-   constant PHY_MODE_STS_REG       : std_logic_vector(7 downto 0) := X"1b";
 
    ---------------------------------------------------
    -- Signal declarations
@@ -405,51 +396,6 @@ begin
                   -- bit8 : full 100M, bit7 : half 100M, bit6 : full 10M, bit5 : half 10M
                   -- only advertise the mode we want..
                   axi_wr_data    <= X"00000" & "000" & speedis100 & '0' & speedis10 & "000000";
-                  axi_state      <= MDIO_RGMII_RD;
-               when MDIO_RGMII_RD =>
-                  assert false
-                    report "Checking current config" & cr
-                    severity note;
-                  start_mdio     <= '1';
-                  writenread     <= '0';
-                  mdio_reg_addr  <= PHY_MODE_STS_REG;
-                  mdio_op        <= MDIO_OP_RD;
-                  axi_state      <= MDIO_RGMII_RD_POLL;
-               when MDIO_RGMII_RD_POLL =>
-                  axi_state      <= MDIO_RGMII;
-                  -- prepare write_data for the next state
-                  axi_wr_data    <= X"0000" & axi_rd_data(15 downto 4) & X"b";
-               when MDIO_RGMII =>
-                  -- set PHY to RGMII (if no jumper)
-                  assert false
-                    report "Setting PHY for RGMII - assumes Xilinx Standard Connectivity Board PHY" & cr
-                    severity note;
-                  start_mdio     <= '1';
-                  mdio_reg_addr  <= PHY_MODE_STS_REG;
-                  mdio_op        <= MDIO_OP_WR;
-                  axi_state      <= MDIO_DELAY_RD;
-               -- may not need the following three states
-               when MDIO_DELAY_RD =>
-                  assert false
-                    report "Checking current config" & cr
-                    severity note;
-                  start_mdio     <= '1';
-                  writenread     <= '0';
-                  mdio_reg_addr  <= PHY_MODE_CTL_REG;
-                  mdio_op        <= MDIO_OP_RD;
-                  axi_state      <= MDIO_DELAY_RD_POLL;
-               when MDIO_DELAY_RD_POLL =>
-                  axi_state      <= MDIO_DELAY;
-                  -- prepare write_data for the next state
-                  axi_wr_data    <= X"0000" & axi_rd_data(15 downto 8) & '1' & axi_rd_data(6 downto 2) & '0' & axi_rd_data(0);
-               when MDIO_DELAY =>
-                  -- add/remove the clock delay
-                  assert false
-                    report "Setting PHY RGMII delay - assumes Xilinx Standard Connectivity Board PHY" & cr
-                    severity note;
-                  start_mdio     <= '1';
-                  mdio_reg_addr  <= PHY_MODE_CTL_REG;
-                  mdio_op        <= MDIO_OP_WR;
                   axi_state      <= MDIO_RESTART;
                when MDIO_RESTART =>
                   -- set autoneg and reset

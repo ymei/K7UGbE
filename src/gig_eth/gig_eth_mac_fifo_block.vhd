@@ -99,9 +99,6 @@ entity tri_mode_ethernet_mac_0_fifo_block is
       rx_axi_rstn                : in  std_logic;
       tx_axi_rstn                : in  std_logic;
 
-      -- Reference clock for IDELAYCTRL's
-      refclk                     : in  std_logic;
-
       -- Receiver Statistics Interface
       -----------------------------------------
       rx_mac_aclk                : out std_logic;
@@ -145,21 +142,16 @@ entity tri_mode_ethernet_mac_0_fifo_block is
       pause_req                  : in  std_logic;
       pause_val                  : in  std_logic_vector(15 downto 0);
 
-      -- RGMII Interface
-      --------------------
-      rgmii_txd                  : out std_logic_vector(3 downto 0);
-      rgmii_tx_ctl               : out std_logic;
-      rgmii_txc                  : out std_logic;
-      rgmii_rxd                  : in  std_logic_vector(3 downto 0);
-      rgmii_rx_ctl               : in  std_logic;
-      rgmii_rxc                  : in  std_logic;
-
-      -- RGMII Inband Status Registers
-      ----------------------------------
-      inband_link_status        : out std_logic;
-      inband_clock_speed        : out std_logic_vector(1 downto 0);
-      inband_duplex_status      : out std_logic;
-
+      -- GMII Interface
+      -------------------
+      gmii_txd                  : out std_logic_vector(7 downto 0);
+      gmii_tx_en                : out std_logic;
+      gmii_tx_er                : out std_logic;
+      gmii_rxd                  : in  std_logic_vector(7 downto 0);
+      gmii_rx_dv                : in  std_logic;
+      gmii_rx_er                : in  std_logic;
+      speedis100                : out std_logic;
+      speedis10100              : out std_logic;
       
       -- MDIO Interface
       -----------------
@@ -207,8 +199,6 @@ architecture wrapper of tri_mode_ethernet_mac_0_fifo_block is
   component tri_mode_ethernet_mac_0_support
     port(
       gtx_clk                    : in  std_logic;
-      gtx_clk_out                : out  std_logic;
-      gtx_clk90_out              : out  std_logic;
       -- asynchronous reset
       glbl_rstn                  : in  std_logic;
       rx_axi_rstn                : in  std_logic;
@@ -216,8 +206,6 @@ architecture wrapper of tri_mode_ethernet_mac_0_fifo_block is
 
       -- Receiver Interface
       ----------------------------
-      rx_enable                  : out std_logic;
-
       rx_statistics_vector       : out std_logic_vector(27 downto 0);
       rx_statistics_valid        : out std_logic;
 
@@ -230,7 +218,6 @@ architecture wrapper of tri_mode_ethernet_mac_0_fifo_block is
 
       -- Transmitter Interface
       -------------------------------
-      tx_enable                  : out std_logic;
       tx_ifg_delay               : in  std_logic_vector(7 downto 0);
       tx_statistics_vector       : out std_logic_vector(31 downto 0);
       tx_statistics_valid        : out std_logic;
@@ -247,23 +234,16 @@ architecture wrapper of tri_mode_ethernet_mac_0_fifo_block is
       pause_req                  : in  std_logic;
       pause_val                  : in  std_logic_vector(15 downto 0);
 
-      -- Reference clock for IDELAYCTRL's
-      refclk                     : in  std_logic;
-
       speedis100                 : out std_logic;
       speedis10100               : out std_logic;
-      -- RGMII Interface
-      ------------------
-      rgmii_txd                  : out std_logic_vector(3 downto 0);
-      rgmii_tx_ctl               : out std_logic;
-      rgmii_txc                  : out std_logic;
-      rgmii_rxd                  : in  std_logic_vector(3 downto 0);
-      rgmii_rx_ctl               : in  std_logic;
-      rgmii_rxc                  : in  std_logic;
-      inband_link_status         : out std_logic;
-      inband_clock_speed         : out std_logic_vector(1 downto 0);
-      inband_duplex_status       : out std_logic;
-
+      -- GMII Interface
+      -----------------
+      gmii_txd                   : out std_logic_vector(7 downto 0);
+      gmii_tx_en                 : out std_logic;
+      gmii_tx_er                 : out std_logic;
+      gmii_rxd                   : in  std_logic_vector(7 downto 0);
+      gmii_rx_dv                 : in  std_logic;
+      gmii_rx_er                 : in  std_logic;
 
       
       -- MDIO Interface
@@ -409,16 +389,12 @@ begin
 
    port map(
       gtx_clk               => gtx_clk,
-      gtx_clk_out           => open,
-      gtx_clk90_out         => open,
       -- asynchronous reset
       glbl_rstn             => glbl_rstn,
       rx_axi_rstn           => rx_axi_rstn,
       tx_axi_rstn           => tx_axi_rstn,
 
       -- Client Receiver Interface
-      rx_enable             => open,
-
       rx_statistics_vector  => rx_statistics_vector,
       rx_statistics_valid   => rx_statistics_valid,
 
@@ -430,8 +406,6 @@ begin
       rx_axis_mac_tuser     => rx_axis_mac_tuser,
 
       -- Client Transmitter Interface
-      tx_enable             => open,
-
       tx_ifg_delay          => tx_ifg_delay,
       tx_statistics_vector  => tx_statistics_vector,
       tx_statistics_valid   => tx_statistics_valid,
@@ -448,24 +422,17 @@ begin
       pause_req             => pause_req,
       pause_val             => pause_val,
 
-      -- Reference clock for IDELAYCTRL's
-      refclk                => refclk,
-
       -- speed control
-      speedis100            => open,
-      speedis10100          => open,
+      speedis100            => speedis100,
+      speedis10100          => speedis10100,
 
-      -- RGMII Interface
-      rgmii_txd             => rgmii_txd,
-      rgmii_tx_ctl          => rgmii_tx_ctl,
-      rgmii_txc             => rgmii_txc,
-      rgmii_rxd             => rgmii_rxd,
-      rgmii_rx_ctl          => rgmii_rx_ctl,
-      rgmii_rxc             => rgmii_rxc,
-      inband_link_status    => inband_link_status,
-      inband_clock_speed    => inband_clock_speed,
-      inband_duplex_status  => inband_duplex_status,
-
+      -- GMII Interface
+      gmii_txd              => gmii_txd,
+      gmii_tx_en            => gmii_tx_en,
+      gmii_tx_er            => gmii_tx_er,
+      gmii_rxd              => gmii_rxd,
+      gmii_rx_dv            => gmii_rx_dv,
+      gmii_rx_er            => gmii_rx_er,
 
       
       -- MDIO Interface

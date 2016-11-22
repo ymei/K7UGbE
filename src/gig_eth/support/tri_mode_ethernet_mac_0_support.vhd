@@ -69,11 +69,6 @@ entity tri_mode_ethernet_mac_0_support is
    port(
 
       gtx_clk                    : in  std_logic;
-      gtx_clk_out                : out  std_logic;
-      gtx_clk90_out              : out  std_logic;
-
-      -- Reference clock for IDELAYCTRL's
-      refclk                     : in  std_logic;
       -- asynchronous reset
       glbl_rstn                  : in  std_logic;
       rx_axi_rstn                : in  std_logic;
@@ -81,7 +76,6 @@ entity tri_mode_ethernet_mac_0_support is
 
       -- Receiver Interface
       ----------------------------
-      rx_enable                  : out std_logic;
 
       rx_statistics_vector       : out std_logic_vector(27 downto 0);
       rx_statistics_valid        : out std_logic;
@@ -95,7 +89,6 @@ entity tri_mode_ethernet_mac_0_support is
 
       -- Transmitter Interface
       -------------------------------
-      tx_enable                  : out std_logic;
 
       tx_ifg_delay               : in  std_logic_vector(7 downto 0);
       tx_statistics_vector       : out std_logic_vector(31 downto 0);
@@ -116,17 +109,14 @@ entity tri_mode_ethernet_mac_0_support is
 
       speedis100                 : out std_logic;
       speedis10100               : out std_logic;
-      -- RGMII Interface
-      ------------------
-      rgmii_txd                  : out std_logic_vector(3 downto 0);
-      rgmii_tx_ctl               : out std_logic;
-      rgmii_txc                  : out std_logic;
-      rgmii_rxd                  : in  std_logic_vector(3 downto 0);
-      rgmii_rx_ctl               : in  std_logic;
-      rgmii_rxc                  : in  std_logic;
-      inband_link_status         : out std_logic;
-      inband_clock_speed         : out std_logic_vector(1 downto 0);
-      inband_duplex_status       : out std_logic;
+      -- GMII Interface
+      -----------------
+      gmii_txd                   : out std_logic_vector(7 downto 0);
+      gmii_tx_en                 : out std_logic;
+      gmii_tx_er                 : out std_logic;
+      gmii_rxd                   : in  std_logic_vector(7 downto 0);
+      gmii_rx_dv                 : in  std_logic;
+      gmii_rx_er                 : in  std_logic;
 
       
       -- MDIO Interface
@@ -173,8 +163,6 @@ architecture wrapper of tri_mode_ethernet_mac_0_support is
    component tri_mode_ethernet_mac_0
    port(
       gtx_clk                    : in  std_logic;
-      gtx_clk90                  : in  std_logic;
-      
       -- asynchronous reset
       glbl_rstn                  : in  std_logic;
       rx_axi_rstn                : in  std_logic;
@@ -182,7 +170,6 @@ architecture wrapper of tri_mode_ethernet_mac_0_support is
 
       -- Receiver Interface
       ----------------------------
-      rx_enable                  : out std_logic;
 
       rx_statistics_vector       : out std_logic_vector(27 downto 0);
       rx_statistics_valid        : out std_logic;
@@ -196,7 +183,6 @@ architecture wrapper of tri_mode_ethernet_mac_0_support is
 
       -- Transmitter Interface
       -------------------------------
-      tx_enable                  : out std_logic;
 
       tx_ifg_delay               : in  std_logic_vector(7 downto 0);
       tx_statistics_vector       : out std_logic_vector(31 downto 0);
@@ -216,17 +202,14 @@ architecture wrapper of tri_mode_ethernet_mac_0_support is
 
       speedis100                 : out std_logic;
       speedis10100               : out std_logic;
-      -- RGMII Interface
-      ------------------
-      rgmii_txd                  : out std_logic_vector(3 downto 0);
-      rgmii_tx_ctl               : out std_logic;
-      rgmii_txc                  : out std_logic;
-      rgmii_rxd                  : in  std_logic_vector(3 downto 0);
-      rgmii_rx_ctl               : in  std_logic;
-      rgmii_rxc                  : in  std_logic;
-      inband_link_status         : out std_logic;
-      inband_clock_speed         : out std_logic_vector(1 downto 0);
-      inband_duplex_status       : out std_logic;
+      -- GMII Interface
+      -----------------
+      gmii_txd                   : out std_logic_vector(7 downto 0);
+      gmii_tx_en                 : out std_logic;
+      gmii_tx_er                 : out std_logic;
+      gmii_rxd                   : in  std_logic_vector(7 downto 0);
+      gmii_rx_dv                 : in  std_logic;
+      gmii_rx_er                 : in  std_logic;
 
       -- MDIO Interface
       -----------------
@@ -263,85 +246,8 @@ architecture wrapper of tri_mode_ethernet_mac_0_support is
    );
    end component;
 
-  ------------------------------------------------------------------------------
-  -- Shareable logic component declarations
-  ------------------------------------------------------------------------------
-  component tri_mode_ethernet_mac_0_support_clocking
-  port (
-        clk_in1                  : in     std_logic;
-        clk_out1                 : out    std_logic;
-        clk_out2                 : out    std_logic;
-        reset                    : in     std_logic;
-        locked                   : out    std_logic
-    );
-  end component;
-
-  component tri_mode_ethernet_mac_0_support_resets
-  port (
-       glbl_rstn                 : in     std_logic;
-       refclk                    : in     std_logic;
-       idelayctrl_ready          : in     std_logic;
-       idelayctrl_reset_out      : out    std_logic;     -- The reset pulse for the IDELAYCTRL.
-
-       gtx_clk                   : in     std_logic;
-       gtx_dcm_locked            : in     std_logic;
-       gtx_mmcm_rst_out          : out    std_logic   -- The reset pulse for the MMCM.
-    );
-  end component;
-
-    -- Internal signals
-    signal mmcm_out_gtx_clk      : std_logic;
-    signal mmcm_out_gtx_clk90    : std_logic;
-    signal gtx_mmcm_rst          : std_logic;
-    signal gtx_mmcm_locked       : std_logic;
-    signal idelayctrl_reset      : std_logic;
-    signal idelayctrl_ready      : std_logic;
-
 
 begin
-
-   -----------------------------------------------------------------------------
-   -- Shareable logic
-   -----------------------------------------------------------------------------
-
-      gtx_clk_out                <= mmcm_out_gtx_clk;
-      gtx_clk90_out              <= mmcm_out_gtx_clk90;
-
-  -- Instantiate the sharable clocking logic
-  tri_mode_ethernet_mac_support_clocking_i : tri_mode_ethernet_mac_0_support_clocking
-  port map (
-      clk_in1                    => gtx_clk,
-      clk_out1                   => mmcm_out_gtx_clk,
-      clk_out2                   => mmcm_out_gtx_clk90,
-      reset                      => gtx_mmcm_rst,
-      locked                     => gtx_mmcm_locked
- );
-
-  -- Instantiate the sharable reset logic
-  tri_mode_ethernet_mac_support_resets_i : tri_mode_ethernet_mac_0_support_resets
-  port map(
-      glbl_rstn                  => glbl_rstn,
-      refclk                     => refclk,
-      
-      idelayctrl_ready           => idelayctrl_ready,
-      
-      idelayctrl_reset_out       => idelayctrl_reset,
-      gtx_clk                    => gtx_clk,
-      gtx_dcm_locked             => gtx_mmcm_locked,
-      gtx_mmcm_rst_out           => gtx_mmcm_rst
-   );
-
-   -- An IDELAYCTRL primitive needs to be instantiated for the Fixed Tap Delay
-   -- mode of the IDELAY.
-   tri_mode_ethernet_mac_idelayctrl_common_i : IDELAYCTRL
-    generic map (
-      SIM_DEVICE => "ULTRASCALE"
-    )
-    port map (
-      RDY                    => idelayctrl_ready,
-      REFCLK                 => refclk,
-      RST                    => idelayctrl_reset
-   );
 
 
    -----------------------------------------------------------------------------
@@ -349,8 +255,7 @@ begin
    -----------------------------------------------------------------------------
    tri_mode_ethernet_mac_i : tri_mode_ethernet_mac_0
    port map (
-      gtx_clk                    => mmcm_out_gtx_clk,
-      gtx_clk90                  => mmcm_out_gtx_clk90,
+      gtx_clk                    => gtx_clk,
       -- asynchronous reset
       glbl_rstn                  => glbl_rstn,
       rx_axi_rstn                => rx_axi_rstn,
@@ -359,8 +264,6 @@ begin
 
       -- Receiver Interface
       ----------------------------
-      rx_enable                  => rx_enable,
-
       rx_statistics_vector       => rx_statistics_vector,
       rx_statistics_valid        => rx_statistics_valid,
 
@@ -374,8 +277,6 @@ begin
 
       -- Transmitter Interface
       -------------------------------
-      tx_enable                  => tx_enable,
-
       tx_ifg_delay               => tx_ifg_delay,
       tx_statistics_vector       => tx_statistics_vector,
       tx_statistics_valid        => tx_statistics_valid,
@@ -395,17 +296,14 @@ begin
 
       speedis100                 => speedis100,
       speedis10100               => speedis10100,
-      -- RGMII Interface
-      ------------------
-      rgmii_txd                  => rgmii_txd,
-      rgmii_tx_ctl               => rgmii_tx_ctl,
-      rgmii_txc                  => rgmii_txc,
-      rgmii_rxd                  => rgmii_rxd,
-      rgmii_rx_ctl               => rgmii_rx_ctl,
-      rgmii_rxc                  => rgmii_rxc,
-      inband_link_status         => inband_link_status,
-      inband_clock_speed         => inband_clock_speed,
-      inband_duplex_status       => inband_duplex_status,
+      -- GMII Interface
+      -----------------
+      gmii_txd                   => gmii_txd,
+      gmii_tx_en                 => gmii_tx_en,
+      gmii_tx_er                 => gmii_tx_er,
+      gmii_rxd                   => gmii_rxd,
+      gmii_rx_dv                 => gmii_rx_dv,
+      gmii_rx_er                 => gmii_rx_er,
 
 
       -- MDIO Interface
@@ -445,4 +343,4 @@ begin
 
 end wrapper;
 
- 
+

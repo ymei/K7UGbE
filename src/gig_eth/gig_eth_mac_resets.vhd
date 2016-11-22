@@ -1,6 +1,7 @@
 --------------------------------------------------------------------------------
 -- File       : tri_mode_ethernet_mac_0_example_design_resets.vhd
 -- Author     : Xilinx Inc.
+--            : ymei modified 20161121
 -- -----------------------------------------------------------------------------
 -- (c) Copyright 2012 Xilinx, Inc. All rights reserved.
 --
@@ -66,13 +67,10 @@ entity tri_mode_ethernet_mac_0_example_design_resets is
    rx_reset                   : in std_logic;
    tx_reset                   : in std_logic;
 
-   dcm_locked                 : in std_logic;
+   -- asynchronous reset output
+   glbl_rst_intn              : out std_logic;
 
    -- synchronous reset outputs
- 
-   glbl_rst_intn              : out std_logic;
-   
-   
    gtx_resetn                 : out std_logic := '0';
    
    s_axi_resetn               : out std_logic := '0';
@@ -95,17 +93,6 @@ architecture RTL of tri_mode_ethernet_mac_0_example_design_resets is
     );
   end component;
 
-  ------------------------------------------------------------------------------
-  -- Component declaration for the synchroniser
-  ------------------------------------------------------------------------------
-  component tri_mode_ethernet_mac_0_sync_block
-  port (
-     clk                        : in  std_logic;
-     data_in                    : in  std_logic;
-     data_out                   : out std_logic
-  );
-  end component;
-
 
 -- define internal signals
     signal s_axi_pre_resetn        : std_logic := '0';
@@ -118,7 +105,6 @@ architecture RTL of tri_mode_ethernet_mac_0_example_design_resets is
     signal clear_checker           : std_logic;
     signal chk_pre_resetn          : std_logic := '0';
     signal chk_reset_int           : std_logic;
-    signal dcm_locked_sync         : std_logic;
     signal glbl_rst_int            : std_logic;
     signal phy_resetn_int          : std_logic;
     signal phy_reset_count         : unsigned(5 downto 0) := (others => '0');
@@ -126,32 +112,12 @@ architecture RTL of tri_mode_ethernet_mac_0_example_design_resets is
 begin
 
   ------------------------------------------------------------------------------
-  -- Synchronise the async dcm_locked into the gtx_clk clock domain
-  ------------------------------------------------------------------------------
-   dcm_sync : tri_mode_ethernet_mac_0_sync_block
-   port map (
-      clk              => gtx_clk,
-      data_in          => dcm_locked,
-      data_out         => dcm_locked_sync
-   );
-
-  ------------------------------------------------------------------------------
   -- Generate resets required for the fifo side signals etc
   ------------------------------------------------------------------------------
   -- in each case the async reset is first captured and then synchronised
 
-   -----------------
-   -- global reset
-   glbl_reset_gen : tri_mode_ethernet_mac_0_reset_sync
-   port map (
-      clk               => gtx_clk,
-      enable            => dcm_locked_sync,
-      reset_in          => glbl_rst,
-      reset_out         => glbl_rst_int
-   );
-
-   glbl_rst_intn <= not glbl_rst_int;
-
+   glbl_rst_int  <= glbl_rst;
+   glbl_rst_intn <= not glbl_rst;
 
 
   -----------------
@@ -189,7 +155,7 @@ begin
       
       clk              => gtx_clk,
       
-      enable           => dcm_locked_sync,
+      enable           => '1',
       reset_in         => combined_reset,
       
       reset_out        => gtx_clk_reset_int
@@ -216,14 +182,14 @@ begin
   -- data check reset
     clear_checker <= glbl_rst or reset_error;
 
-   -- ymei
-   -- chk_reset_int <= clear_checker;
-   chk_reset_gen : tri_mode_ethernet_mac_0_reset_sync
-   port map (
-     clk              => gtx_clk,
-     enable           => dcm_locked_sync,
-     reset_in         => clear_checker,
-     reset_out        => chk_reset_int
+    chk_reset_gen : tri_mode_ethernet_mac_0_reset_sync
+    port map (
+      
+      clk              => gtx_clk,
+      
+      enable           => '1',
+      reset_in         => clear_checker,
+      reset_out        => chk_reset_int
    );
 
    -- Create fully synchronous reset in the gtx_clk domain.

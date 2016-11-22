@@ -43,6 +43,8 @@ ENTITY top IS
     SYS_CLK_N    : IN    std_logic;
     SYS125_CLK_P : IN    std_logic;
     SYS125_CLK_N : IN    std_logic;
+    USER_CLK_P   : IN    std_logic;  -- 156.250 MHz
+    USER_CLK_N   : IN    std_logic;
     --
     LED8Bit      : OUT   std_logic_vector(7 DOWNTO 0);
     DIPSw4Bit    : IN    std_logic_vector(3 DOWNTO 0);
@@ -87,18 +89,20 @@ ARCHITECTURE Behavioral OF top IS
       -- asynchronous reset
       GLBL_RST             : IN    std_logic;
       -- clocks
-      GTX_CLK              : IN    std_logic;  -- 125MHz
-      REF_CLK              : IN    std_logic;  -- 200MHz for IODELAY
+      SYS_CLK              : IN    std_logic;
+      GTREFCLK_P           : IN    std_logic;  -- 125 MHz very high quality clock for GT transceiver
+      GTREFCLK_N           : IN    std_logic;
+      GTREFCLK_OUT         : OUT   std_logic;  -- routed back OUT, single-ended
       -- PHY interface
       PHY_RESETN           : OUT   std_logic;
-      -- SGMII Interface
+      -- SGMII interface
       SGMII_CLK_P          : IN    std_logic;
       SGMII_CLK_N          : IN    std_logic;
       SGMII_RX_P           : IN    std_logic;
       SGMII_RX_N           : IN    std_logic;
       SGMII_TX_P           : OUT   std_logic;
       SGMII_TX_N           : OUT   std_logic;
-      -- MDIO Interface
+      -- MDIO interface
       MDIO                 : INOUT std_logic;
       MDC                  : OUT   std_logic;
       -- TCP
@@ -253,7 +257,7 @@ ARCHITECTURE Behavioral OF top IS
   SIGNAL clk_200MHz                        : std_logic;
   SIGNAL clk_250MHz                        : std_logic;
   SIGNAL clk156                            : std_logic;
-  SIGNAL sgmii_clk                         : std_logic;
+  SIGNAL user_clk                         : std_logic;
   --
   SIGNAL control_clk                       : std_logic;
   SIGNAL control_fifo_q                    : std_logic_vector(35 DOWNTO 0);
@@ -309,7 +313,7 @@ ARCHITECTURE Behavioral OF top IS
   ---------------------------------------------> debug
 
 BEGIN
-  ---------------------------------------------< Clock
+  ---------------------------------------------< Clock and reset
   global_clock_reset_inst : global_clock_reset
     PORT MAP (
       SYS_CLK_P  => SYS_CLK_P,
@@ -323,6 +327,16 @@ BEGIN
       CLK_OUT3   => OPEN,
       CLK_OUT4   => clk_250MHz
     );
+  user_clk_ibuf : IBUFGDS
+    GENERIC MAP (
+      DIFF_TERM => FALSE                -- external termination available
+    )
+    PORT MAP (
+      O  => user_clk,
+      I  => USER_CLK_P,
+      IB => USER_CLK_N
+    );
+  ---------------------------------------------> Clock and reset
 
   ---------------------------------------------< control_interface
   control_clk <= clk_100MHz;
@@ -355,6 +369,86 @@ BEGIN
       DATA_FIFO_RDCLK => OPEN
     );
   ---------------------------------------------> control_interface
+  ---------------------------------------------< gig_eth
+  gig_eth_cores : IF ENABLE_GIG_ETH GENERATE
+    gig_eth_mac_addr(gig_eth_mac_addr'length-1 DOWNTO 4)   <= x"000a3502a75";
+    gig_eth_mac_addr(3 DOWNTO 0)                           <= DIPSw4Bit;
+    gig_eth_ipv4_addr(gig_eth_ipv4_addr'length-1 DOWNTO 4) <= x"c0a8020";
+    gig_eth_ipv4_addr(3 DOWNTO 0)                          <= DIPSw4Bit;
+    gig_eth_subnet_mask                                    <= x"ffffff00";
+    gig_eth_gateway_ip_addr                                <= x"c0a80201";
+    gig_eth_inst : gig_eth
+      PORT MAP (
+        -- asynchronous reset
+        GLBL_RST             => reset,
+        -- clocks
+        SYS_CLK              => sys_clk,
+        GTREFCLK_P           => SYS125_CLK_P,  -- 125MHz very high quality clock, external 100Ohm termination.
+        GTREFCLK_N           => SYS125_CLK_N,
+        GTREFCLK_OUT         => sys125_clk,    -- routed back out, single-ended        
+        -- PHY interface
+        PHY_RESETN           => PHY_RESET_N,
+        -- SGMII interface
+        SGMII_CLK_P          => SGMII_CLK_P,
+        SGMII_CLK_N          => SGMII_CLK_N,
+        SGMII_RX_P           => SGMII_RX_P,
+        SGMII_RX_N           => SGMII_RX_N,
+        SGMII_TX_P           => SGMII_TX_P,
+        SGMII_TX_N           => SGMII_TX_N,
+        -- MDIO interface
+        MDIO                 => MDIO,
+        MDC                  => MDC,
+        -- TCP
+        MAC_ADDR             => gig_eth_mac_addr,
+        IPv4_ADDR            => gig_eth_ipv4_addr,
+        IPv6_ADDR            => (OTHERS => '0'),
+        SUBNET_MASK          => gig_eth_subnet_mask,
+        GATEWAY_IP_ADDR      => gig_eth_gateway_ip_addr,
+        TCP_CONNECTION_RESET => '0',
+        TX_TDATA             => gig_eth_tx_tdata,
+        TX_TVALID            => gig_eth_tx_tvalid,
+        TX_TREADY            => gig_eth_tx_tready,
+        RX_TDATA             => gig_eth_rx_tdata,
+        RX_TVALID            => gig_eth_rx_tvalid,
+        RX_TREADY            => gig_eth_rx_tready,
+        -- FIFO
+        TCP_USE_FIFO         => gig_eth_tcp_use_fifo,
+        TX_FIFO_WRCLK        => gig_eth_tx_fifo_wrclk,
+        TX_FIFO_Q            => gig_eth_tx_fifo_q,
+        TX_FIFO_WREN         => gig_eth_tx_fifo_wren,
+        TX_FIFO_FULL         => gig_eth_tx_fifo_full,
+        RX_FIFO_RDCLK        => gig_eth_rx_fifo_rdclk,
+        RX_FIFO_Q            => gig_eth_rx_fifo_q,
+        RX_FIFO_RDEN         => gig_eth_rx_fifo_rden,
+        RX_FIFO_EMPTY        => gig_eth_rx_fifo_empty
+      );
+    dbg_ila_probe0(26 DOWNTO 19) <= gig_eth_rx_tdata;
+    dbg_ila_probe0(27)           <= gig_eth_rx_tvalid;
+    dbg_ila_probe0(28)           <= gig_eth_rx_tready;
+
+    -- loopback
+    --gig_eth_tx_tdata  <= gig_eth_rx_tdata;
+    --gig_eth_tx_tvalid <= gig_eth_rx_tvalid;
+    --gig_eth_rx_tready <= gig_eth_tx_tready;
+
+    -- receive to cmd_fifo
+    gig_eth_tcp_use_fifo         <= '1';
+    gig_eth_rx_fifo_rdclk        <= control_clk;
+    cmd_fifo_q(31 DOWNTO 0)      <= gig_eth_rx_fifo_q;
+    dbg_ila_probe0(63 DOWNTO 32) <= gig_eth_rx_fifo_q;
+    cmd_fifo_empty               <= gig_eth_rx_fifo_empty;
+    gig_eth_rx_fifo_rden         <= cmd_fifo_rdreq;
+
+    -- send control_fifo data through gig_eth_tx_fifo
+    gig_eth_tx_fifo_wrclk <= sys125_clk;
+    -- connect FWFT fifo interface
+    control_fifo_rdclk    <= gig_eth_tx_fifo_wrclk;
+    gig_eth_tx_fifo_q     <= control_fifo_q(31 DOWNTO 0);
+    gig_eth_tx_fifo_wren  <= NOT control_fifo_empty;
+    control_fifo_rdreq    <= NOT gig_eth_tx_fifo_full;
+  END GENERATE gig_eth_cores;
+  ---------------------------------------------> gig_eth
+
   usr_data_output <= config_reg(7 DOWNTO 0);
   led_obufs : FOR i IN 0 TO 7 GENERATE
     led_obuf : OBUF

@@ -14,17 +14,26 @@ set_property IOSTANDARD LVDS [get_ports {SYS_CLK_P}]
 set_property PACKAGE_PIN AK16 [get_ports {SYS_CLK_N}]
 set_property IOSTANDARD LVDS [get_ports {SYS_CLK_N}]
 
-# DIFF_TERM="TRUE"
+# DIFF_TERM=FALSE
 set_property PACKAGE_PIN G10 [get_ports {SYS125_CLK_P}]
 set_property IOSTANDARD LVDS [get_ports {SYS125_CLK_P}]
 set_property PACKAGE_PIN F10 [get_ports {SYS125_CLK_N}]
 set_property IOSTANDARD LVDS [get_ports {SYS125_CLK_N}]
 
-# DIFF_TERM="TRUE"
+# DIFF_TERM=FALSE
 set_property PACKAGE_PIN M25 [get_ports {USER_CLK_P}]
 set_property IOSTANDARD LVDS_25 [get_ports {USER_CLK_P}]
 set_property PACKAGE_PIN M26 [get_ports {USER_CLK_N}]
 set_property IOSTANDARD LVDS_25 [get_ports {USER_CLK_N}]
+
+# clock domain interaction
+set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks system_clock] -group [get_clocks -include_generated_clocks sys125_clock]
+set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks system_clock] -group [get_clocks -include_generated_clocks user_clock]
+set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks user_clock] -group [get_clocks -include_generated_clocks sys125_clock]
+# seems we ran out of bufg's
+# set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets global_clock_reset_inst/I]
+# false path of resetter
+set_false_path -from [get_pins -of_objects [get_cells -hierarchical -filter {NAME =~ *GLOBAL_RST_reg*}] -filter {NAME =~ *C}]
 
 #<-- LEDs, buttons and switches --<
 # SW5 CPU_RESET
@@ -144,6 +153,14 @@ set_property PACKAGE_PIN L23 [get_ports {USB_CTS}]
 set_property IOSTANDARD LVCMOS18 [get_ports {USB_CTS}]
 
 #>-- UART -->
+
+#<-- control interface --<
+
+set_false_path -from [get_pins -of_objects [get_cells -hierarchical -filter {NAME =~ *control_interface_inst*sConfigReg_reg[*]}] -filter {NAME =~ *C}]
+#set_false_path -from [get_pins -of_objects [get_cells -hierarchical -filter {NAME =~ *control_interface_inst*sPulseReg_reg[*]}] -filter {NAME =~ *C}]
+set_false_path -to [get_pins -of_objects [get_cells -hierarchical -filter {NAME =~ *control_interface_inst*sRegOut_reg[*]}] -filter {NAME =~ *D}]
+
+#>-- control interface -->
 
 #<-- gigabit eth interface --<
 
