@@ -1,55 +1,49 @@
--- $Id$
--------------------------------------------------------------------------------
--- Title      : Control Interface
--- Project    : HFT PXL
--------------------------------------------------------------------------------
--- File       : control_interface.vhd
--- Author     : JS  <jschamba@physics.utexas.edu>
--- Company    : University of Texas at Austin
--- Created    : 2013-06-12
--- Last update: 2013-10-25
--- Platform   : Windows, Xilinx PlanAhead 14.5
--- Target     : Virtex 6 (XC6VLX240T-FF1759)
--- Standard   : VHDL'93/02
--------------------------------------------------------------------------------
--- Description: Read words from command FIFO and interpret
---              This defines some example interfaces at different addresses:
---              Address 32 - 63:         16bit Configuration registers
---                              These registers can be written and read.
---                              Could be used to define operations parameters
---              Address 11:             16bit Pulse REGISTER
---                              This register generates a pulse at the bits
---                              set to 1 that is 3 clocks wide
---                              Could be used to start some action, e.g. jtag
---              Address 0 - 10:        16bit Status registers
---                              These are read-only.
---                              Can be used to read the status of some external
---                              device, .e.g an ADC, or input pins.
---              Address 16 - 20:        32bit memory interface
---                              The idea is to write an address into 17 (LSB)
---                              and 18 (MSB)
---                              Then write the LSB16 into 19, and finally
---                              the  MSB16 into 20. On write to 20, the 32bit
---                              data in 19 and 20 is written to the memory, AND
---                              the address is auto-incremented, so that the NEXT
---                              write seuqence doesn't need to re-write the address.
---                              A Read on 20 reads the current address and returns
---                              a 32bit data word into the FIFO, then increases
---                              the memory. This read is repeated n times, where
---                              "n" is the 16bit value at address 16.
---              Address 25:     This address initiates a read from the DATA_FIFO
---                              The value writen n indicated the number of
---                              words to copy from the DATA_FIFO to the FIFO
---                              (fifo to the USB interface)
--------------------------------------------------------------------------------
--- Copyright (c) 2013 
--------------------------------------------------------------------------------
--- Revisions  :
--- Date        Version  Author          Description
--- 2013-06-12  1.0      jschamba        Created
--- 2013-10-21  1.1      thorsten        changed memory address space to 32 bit
---                                      added an interface to read a data fifo
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--! @file control_interface.vhd
+--! @brief Control Interface
+--! \verbatim
+--! Author     : JS  <jschamba@physics.utexas.edu>
+--! Company    : University of Texas at Austin
+--! Created    : 2013-06-12
+--! Last update: 2016-12-25
+--! Description: Read words from command FIFO and interpret
+--!              This defines some example interfaces at different addresses:
+--!              Address 32 - 63:         16bit Configuration registers
+--!                              These registers can be written and read.
+--!                              Could be used to define operations parameters
+--!              Address 11:             16bit Pulse REGISTER
+--!                              This register generates a pulse at the bits
+--!                              set to 1 that is 3 clocks wide
+--!                              Could be used to start some action, e.g. jtag
+--!              Address 0 - 10:        16bit Status registers
+--!                              These are read-only.
+--!                              Can be used to read the status of some external
+--!                              device, .e.g an ADC, or input pins.
+--!              Address 16 - 20:        32bit memory interface
+--!                              The idea is to write an address into 17 (LSB)
+--!                              and 18 (MSB)
+--!                              Then write the LSB16 into 19, and finally
+--!                              the  MSB16 into 20. On write to 20, the 32bit
+--!                              data in 19 and 20 is written to the memory, AND
+--!                              the address is auto-incremented, so that the NEXT
+--!                              write seuqence doesn't need to re-write the address.
+--!                              A Read on 20 reads the current address and returns
+--!                              a 32bit data word into the FIFO, then increases
+--!                              the memory. This read is repeated n times, where
+--!                              "n" is the 16bit value at address 16.
+--!              Address 25:     This address initiates a read from the DATA_FIFO
+--!                              The value writen n indicated the number of
+--!                              words to copy from the DATA_FIFO to the FIFO
+--!                              (fifo to the USB interface)
+--!
+--! Revisions  :
+--! Date        Version  Author          Description
+--! 2013-06-12  1.0      jschamba        Created
+--! 2013-10-21  1.1      thorsten        changed memory address space to 32 bit
+--!                                      added an interface to read a data fifo
+--! 2016-12-25           ymei            Adapt to FWFT FIFO
+--! \endverbatim
+--------------------------------------------------------------------------------
 
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
