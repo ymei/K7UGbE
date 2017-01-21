@@ -3,3 +3,4 @@ vivado.*
 vivado_*
 .Xil
 *.o
+*.pyc
