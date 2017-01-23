@@ -92,10 +92,10 @@ set proj_dir [get_property directory [current_project]]
 # Set project properties
 set obj [get_projects top]
 set_property "board_part" "xilinx.com:kcu105:part0:1.1" $obj
-set_property "corecontainer.enable" "1" $obj
 set_property "default_lib" "xil_defaultlib" $obj
 set_property "sim.ip.auto_export_scripts" "1" $obj
 set_property "simulator_language" "Mixed" $obj
+set_property "source_mgmt_mode" "DisplayOnly" $obj
 set_property "target_language" "VHDL" $obj
 
 # Create 'sources_1' fileset (if not found)
@@ -482,7 +482,25 @@ if {[string equal [get_filesets -quiet sim_1] ""]} {
 
 # Set 'sim_1' fileset object
 set obj [get_filesets sim_1]
-# Empty (no sources present)
+set files [list \
+ "[file normalize "$origin_dir/../test_bench/pattern_over_fifo_tb.vhd"]"\
+ "[file normalize "$origin_dir/../test_bench/pulse2pulse_tb.vhd"]"\
+]
+add_files -norecurse -fileset $obj $files
+
+# Set 'sim_1' fileset file properties for remote files
+set file "$origin_dir/../test_bench/pattern_over_fifo_tb.vhd"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
+set_property "file_type" "VHDL" $file_obj
+
+set file "$origin_dir/../test_bench/pulse2pulse_tb.vhd"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
+set_property "file_type" "VHDL" $file_obj
+
+# Set 'sim_1' fileset file properties for local files
+# None
 
 # Set 'sim_1' fileset properties
 set obj [get_filesets sim_1]

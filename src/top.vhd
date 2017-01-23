@@ -214,6 +214,11 @@ ARCHITECTURE Behavioral OF top IS
   SIGNAL control_mem_addr                  : std_logic_vector(31 DOWNTO 0);
   SIGNAL control_mem_din                   : std_logic_vector(31 DOWNTO 0);
   --
+  SIGNAL control_data_fifo_q               : std_logic_vector(31 DOWNTO 0);
+  SIGNAL control_data_fifo_empty           : std_logic;
+  SIGNAL control_data_fifo_rdreq           : std_logic;
+  SIGNAL control_data_fifo_rdclk           : std_logic;
+  --
   SIGNAL usr_data_output                   : std_logic_vector (7 DOWNTO 0);
   ---------------------------------------------< gig_eth
   SIGNAL gig_eth_mac_addr                  : std_logic_vector(47 DOWNTO 0);
@@ -286,7 +291,14 @@ BEGIN
   ---------------------------------------------> Clock and reset
 
   ---------------------------------------------< control_interface
-  control_clk <= clk_100MHz;
+  clk_div_inst : clk_div
+    PORT MAP (
+      RESET   => reset,
+      CLK     => clk_100MHz,
+      DIV     => x"7",
+      CLK_DIV => control_clk
+    );
+  -- control_clk <= clk_100MHz;
   control_interface_inst : control_interface
     PORT MAP (
       RESET => reset,
@@ -310,10 +322,10 @@ BEGIN
       MEM_DIN         => control_mem_din,
       MEM_DOUT        => (OTHERS => '0'),
       -- Data FIFO interface, FWFT
-      DATA_FIFO_Q     => (OTHERS => '0'),
-      DATA_FIFO_EMPTY => '1',
-      DATA_FIFO_RDREQ => OPEN,
-      DATA_FIFO_RDCLK => OPEN
+      DATA_FIFO_Q     => control_data_fifo_q,
+      DATA_FIFO_EMPTY => control_data_fifo_empty,
+      DATA_FIFO_RDREQ => control_data_fifo_rdreq,
+      DATA_FIFO_RDCLK => control_data_fifo_rdclk
     );
   ---------------------------------------------> control_interface
   ---------------------------------------------< gig_eth
@@ -408,6 +420,7 @@ BEGIN
   END PROCESS;
 
   usr_data_output(7 DOWNTO 4) <= gig_eth_status(16) & gig_eth_status(7) & gig_eth_status(3 DOWNTO 2);
+  usr_data_output(1 DOWNTO 0) <= config_reg(1 DOWNTO 0);
   -- usr_data_output <= gig_eth_status(15 DOWNTO 8);
 
   led_obufs : FOR i IN 0 TO 7 GENERATE
@@ -417,5 +430,23 @@ BEGIN
         O => LED8Bit(i)
       );
   END GENERATE led_obufs;
+
+  -- pattern
+  PROCESS (control_data_fifo_rdclk, reset) IS
+    VARIABLE cnt : unsigned(31 DOWNTO 0) := (OTHERS => '0');
+  BEGIN  -- PROCESS
+    IF reset = '1' THEN                 -- asynchronous reset (active high)
+      cnt := (OTHERS => '0');
+    ELSIF rising_edge(control_data_fifo_rdclk) THEN  -- rising clock edge
+      control_data_fifo_empty <= '0';
+      IF control_data_fifo_rdreq = '1' THEN
+        cnt := cnt + 1;
+      END IF;
+      IF cnt(11 DOWNTO 0) = x"fff" THEN
+        control_data_fifo_empty <= '1';
+      END IF;
+      control_data_fifo_q <= std_logic_vector(cnt);
+    END IF;
+  END PROCESS;
 
 END Behavioral;
