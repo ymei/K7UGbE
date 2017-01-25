@@ -138,6 +138,25 @@ PACKAGE utility IS
       O : OUT std_logic
     );
   END COMPONENT;
+  COMPONENT pattern_over_fifo
+    GENERIC (
+      FIFO_DEVICE : string  := "7SERIES";  --! target device for FIFO: "VIRTEX5", "VIRTEX6", "7SERIES"
+      DATA_WIDTH  : integer := 32
+    );
+    PORT (
+      RESET           : IN  std_logic;
+      CLK             : IN  std_logic;
+      START           : IN  std_logic;  --! start SIGNAL: a pulse that can be
+                                        --! of any length longer than 1 CLK cycle.
+                                        --! Also resets the internal counter TO 0.
+      FIFO_FULL_LATCH : OUT std_logic;  --! latches at '1' when FIFO is full,
+                                        --! unlatches only when reset.
+      FIFO_DOUT       : OUT std_logic_vector(DATA_WIDTH-1 DOWNTO 0);
+      FIFO_EMPTY      : OUT std_logic;
+      FIFO_RDEN       : IN  std_logic;
+      FIFO_RDCLK      : IN  std_logic
+    );
+  END COMPONENT;
 
   IMPURE FUNCTION version_from_file(filename : IN string) RETURN std_logic_vector;
 

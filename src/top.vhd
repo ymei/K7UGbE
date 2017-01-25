@@ -420,7 +420,7 @@ BEGIN
   END PROCESS;
 
   usr_data_output(7 DOWNTO 4) <= gig_eth_status(16) & gig_eth_status(7) & gig_eth_status(3 DOWNTO 2);
-  usr_data_output(1 DOWNTO 0) <= config_reg(1 DOWNTO 0);
+  usr_data_output(0 DOWNTO 0) <= config_reg(0 DOWNTO 0);
   -- usr_data_output <= gig_eth_status(15 DOWNTO 8);
 
   led_obufs : FOR i IN 0 TO 7 GENERATE
@@ -431,22 +431,16 @@ BEGIN
       );
   END GENERATE led_obufs;
 
-  -- pattern
-  PROCESS (control_data_fifo_rdclk, reset) IS
-    VARIABLE cnt : unsigned(31 DOWNTO 0) := (OTHERS => '0');
-  BEGIN  -- PROCESS
-    IF reset = '1' THEN                 -- asynchronous reset (active high)
-      cnt := (OTHERS => '0');
-    ELSIF rising_edge(control_data_fifo_rdclk) THEN  -- rising clock edge
-      control_data_fifo_empty <= '0';
-      IF control_data_fifo_rdreq = '1' THEN
-        cnt := cnt + 1;
-      END IF;
-      IF cnt(11 DOWNTO 0) = x"fff" THEN
-        control_data_fifo_empty <= '1';
-      END IF;
-      control_data_fifo_q <= std_logic_vector(cnt);
-    END IF;
-  END PROCESS;
-
+  -- test pattern
+  pattern_over_fifo_inst : pattern_over_fifo
+    PORT MAP (
+      RESET           => reset,
+      CLK             => control_clk,
+      START           => pulse_reg(15),
+      FIFO_FULL_LATCH => usr_data_output(1),
+      FIFO_DOUT       => control_data_fifo_q,
+      FIFO_EMPTY      => control_data_fifo_empty,
+      FIFO_RDEN       => control_data_fifo_rdreq,
+      FIFO_RDCLK      => control_data_fifo_rdclk
+    );
 END Behavioral;
