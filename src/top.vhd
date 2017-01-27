@@ -291,14 +291,7 @@ BEGIN
   ---------------------------------------------> Clock and reset
 
   ---------------------------------------------< control_interface
-  clk_div_inst : clk_div
-    PORT MAP (
-      RESET   => reset,
-      CLK     => clk_100MHz,
-      DIV     => x"7",
-      CLK_DIV => control_clk
-    );
-  -- control_clk <= clk_100MHz;
+  control_clk <= clk_100MHz;
   control_interface_inst : control_interface
     PORT MAP (
       RESET => reset,
@@ -432,15 +425,32 @@ BEGIN
   END GENERATE led_obufs;
 
   -- test pattern
+  clk_div_inst : clk_div
+    PORT MAP (
+      RESET   => reset,
+      CLK     => clk_100MHz,
+      DIV     => x"3",
+      CLK_DIV => dbg_ila_probe0(0)
+    );
+  start_pulse2pulse_inst : pulse2pulse
+    PORT MAP (
+      IN_CLK   => control_clk,
+      OUT_CLK  => dbg_ila_probe0(0),
+      RST      => reset,
+      PULSEIN  => pulse_reg(15),
+      INBUSY   => OPEN,
+      PULSEOUT => dbg_ila_probe0(1)
+    );
   pattern_over_fifo_inst : pattern_over_fifo
     PORT MAP (
       RESET           => reset,
-      CLK             => control_clk,
-      START           => pulse_reg(15),
+      CLK             => dbg_ila_probe0(0),
+      START           => dbg_ila_probe0(1),
       FIFO_FULL_LATCH => usr_data_output(1),
       FIFO_DOUT       => control_data_fifo_q,
       FIFO_EMPTY      => control_data_fifo_empty,
       FIFO_RDEN       => control_data_fifo_rdreq,
       FIFO_RDCLK      => control_data_fifo_rdclk
     );
+
 END Behavioral;

@@ -20,6 +20,8 @@ USE UNISIM.VComponents.ALL;
 LIBRARY UNIMACRO;
 USE UNIMACRO.VComponents.ALL;
 
+--! Generate a contiguously increasing number as the test pattern that is sent
+--! through a FIFO.  START resets the sequence.
 ENTITY pattern_over_fifo IS
   GENERIC (
     FIFO_DEVICE : string  := "7SERIES";  --! target device for FIFO: "VIRTEX5", "VIRTEX6", "7SERIES"
@@ -81,6 +83,9 @@ ARCHITECTURE Behavioral OF pattern_over_fifo IS
   --
   SIGNAL prev         : std_logic;
   SIGNAL prev1        : std_logic;
+  --
+  TYPE fsm_state_t IS (S0, S1, S2);
+  SIGNAL state        : fsm_state_t;
 
 BEGIN
 
@@ -159,40 +164,60 @@ BEGIN
   -- write pattern into fifo
   fifo_wrclk <= CLK;
   PROCESS (fifo_wrclk, RESET) IS
-    VARIABLE cnt  : unsigned(DATA_WIDTH-1 DOWNTO 0) := (OTHERS => '0');
-    VARIABLE fcnt : unsigned(2 DOWNTO 0) := (OTHERS => '0');
-    VARIABLE frst : std_logic;
+    VARIABLE cnt  : unsigned(DATA_WIDTH-1 DOWNTO 0) := (OTHERS => '1');
+    VARIABLE rcnt : unsigned(2 DOWNTO 0) := (OTHERS => '1');  -- counter for reset
   BEGIN  -- PROCESS
     IF RESET = '1' THEN
-      cnt         := (OTHERS => '0');
-      fcnt        := (OTHERS => '0');
-      frst        := '0';
+      cnt         := (OTHERS => '1');
+      rcnt        := (OTHERS => '1');
       fifo_wren   <= '0';
       fifo_reset1 <= '0';
+      state       <= S0;
     ELSIF rising_edge(fifo_wrclk) THEN
-      fifo_wren <= '0';
-      IF start_pulse = '1' THEN
-        cnt         := (OTHERS => '0');
-        fcnt        := (OTHERS => '0');
-        frst        := '1';
+
+      fifo_reset1 <= '0';
+      fifo_wren   <= '0';
+
+      CASE state IS
+        WHEN S0 =>                      -- hold fifo_reset high for certain # cycles
+          IF rcnt /= to_unsigned(0, rcnt'length) THEN
+            fifo_reset1 <= '1';
+            rcnt        := rcnt - 1;
+            state       <= S0;
+          ELSE
+            rcnt  := (OTHERS => '1');
+            state <= S1;
+          END IF;
+
+        WHEN S1 =>                      -- wait for certain # cycles before writing
+          IF rcnt /= to_unsigned(0, rcnt'length) THEN
+            rcnt  := rcnt - 1;
+            state <= S1;
+          ELSE
+            state <= S2;
+          END IF;
+
+        WHEN S2 =>                      -- writing TO FIFO
+          IF fifo_full = '0' THEN
+            fifo_wren <= '1';
+            cnt       := cnt + 1;
+          END IF;
+          state <= S2;
+
+        WHEN OTHERS =>
+          state <= S0;
+      END CASE;
+
+      IF start_pulse = '1' THEN         -- start_pulse to restart the cycle
+        cnt  := (OTHERS => '1');
+        rcnt := (OTHERS => '1');
         fifo_reset1 <= '1';
+        state <= S0;
       END IF;
-      fifo_din <= std_logic_vector(cnt);
-      IF fifo_full = '0' AND frst = '0' THEN
-        fifo_wren <= '1';
-        cnt       := cnt + 1;
-      END IF;
-      IF frst = '1' THEN
-        fcnt      := fcnt + 1;
-        fifo_wren <= '0';
-      END IF;
-      IF fcnt = "110" THEN
-        fifo_reset1 <= '0';
-      END IF;
-      IF fcnt = "111" THEN
-        frst := '0';
-      END IF;
+
     END IF;
+
+    fifo_din <= std_logic_vector(cnt);
   END PROCESS;
   fifo_reset <= fifo_reset1 OR RESET;
 
@@ -200,8 +225,8 @@ BEGIN
   PROCESS (fifo_wrclk, RESET, start_pulse) IS
   BEGIN
     IF RESET = '1' OR start_pulse = '1' THEN
-      prev            <= '0';
-      prev1           <= '0';
+      prev            <= '1';
+      prev1           <= '1';
       FIFO_FULL_LATCH <= '0';
     ELSIF rising_edge(fifo_wrclk) THEN
       prev  <= fifo_full;

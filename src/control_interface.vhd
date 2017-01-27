@@ -32,9 +32,11 @@
 --!                              the memory. This read is repeated n times, where
 --!                              "n" is the 16bit value at address 16.
 --!              Address 25:     This address initiates a read from the DATA_FIFO
---!                              The value writen n indicated the number of
---!                              words to copy from the DATA_FIFO to the FIFO
---!                              (fifo to the USB interface)
+--!                              The value written `n' indicates the number of
+--!                              words to copy from the DATA_FIFO to the FIFO.
+--!                              Write `n' will result in n+1 words to be transferred.
+--!                              Will wait indefinitely for all words to be transferred
+--!                              should FIFOs stay in empty/full state.
 --!
 --! Revisions  :
 --! Date        Version  Author          Description
@@ -104,6 +106,7 @@ ARCHITECTURE a OF control_interface IS
   CONSTANT SEL_FIFO : integer := 2;
   SIGNAL sFifoD     : std_logic_vector(35 DOWNTO 0);
   SIGNAL sFifoFull  : std_logic;
+  SIGNAL sFifoWren  : std_logic;
   SIGNAL sFifoWrreq : std_logic;
   SIGNAL sFifoRst   : std_logic;
   SIGNAL sFifoClk   : std_logic;
@@ -125,7 +128,6 @@ ARCHITECTURE a OF control_interface IS
   -- signals for FIFO read
   -- to read data from a FIFO
   SIGNAL sDataFifoCount : std_logic_vector(15 DOWNTO 0);
-  SIGNAL sDataFIFOrdreq : std_logic;
 
   -- State machine variable
   TYPE cmdState_t IS (
@@ -160,7 +162,6 @@ BEGIN
 
   -- data fifo
   DATA_FIFO_RDCLK <= CLK;
-  DATA_FIFO_RDREQ <= sDataFIFOrdreq;
 
   -- data/event FIFO
   sFifoRst <= RESET;
@@ -171,7 +172,7 @@ BEGIN
       wr_clk => sFifoClk,
       rd_clk => FIFO_RDCLK,
       din    => sFifoD,
-      wr_en  => sFifoWrreq,
+      wr_en  => sFifoWren,
       rd_en  => FIFO_RDREQ,
       dout   => FIFO_Q,
       full   => sFifoFull,
@@ -182,6 +183,10 @@ BEGIN
   sFifoD(31 DOWNTO 0)  <= MEM_DOUT WHEN bMemNotReg = SEL_MEM ELSE
                           DATA_FIFO_Q WHEN bMemNotReg = SEL_FIFO ELSE
                           x"0000" & sRegOut;
+  sFifoWren            <= (NOT DATA_FIFO_EMPTY) WHEN bMemNotReg = SEL_FIFO
+                          ELSE sFifoWrreq;
+  DATA_FIFO_RDREQ      <= (NOT sFifoFull)       WHEN bMemNotReg = SEL_FIFO
+                          ELSE '0';
 
   cmdIF_inst : PROCESS (CLK, RESET) IS
     VARIABLE counterV    : integer RANGE 0 TO 65535 := 0;
@@ -206,7 +211,6 @@ BEGIN
       sFifoWrreq     <= '0';
       sWea           <= '0';
       sRegOut        <= (OTHERS => '0');
-      sDataFIFOrdreq <= '0';
 
       CASE cmdState IS
 --      //// initialize registers to some sensible values
@@ -329,13 +333,10 @@ BEGIN
                 cmdState <= MEM_ADV;
 
               WHEN 25 =>                -- Data Fifo read count
-                counterFIFO    := to_integer(unsigned(CMD_FIFO_Q(15 DOWNTO 0)));
-                bMemNotReg     <= SEL_FIFO;
-                IF DATA_FIFO_EMPTY = '0' AND counterFIFO > 0 THEN
-                  cmdState <= FIFO_ADV;
-                ELSE
-                  cmdState <= WAIT_CMD;
-                END IF;
+                counterFIFO := to_integer(unsigned(CMD_FIFO_Q(15 DOWNTO 0)));
+                bMemNotReg  <= SEL_FIFO;
+                cmdState    <= FIFO_ADV;
+
               WHEN OTHERS =>            -- bad address, do nothing
                 cmdState <= WAIT_CMD;
             END CASE;
@@ -377,22 +378,17 @@ BEGIN
         WHEN FIFO_ADV =>
           -- read data fifo, write reads to output fifo
           -- exit when enough words were transferred
-          -- DATA_FIFO_EMPTY prematurely terminates the transfer
-          IF DATA_FIFO_EMPTY = '0' THEN
-            cmdState           <= FIFO_ADV;
-            IF sFifoFull = '0' THEN
-              IF counterFIFO = 0 THEN
-                -- we are done
-                cmdState <= WAIT_CMD;
-              ELSE
-                -- more to copy
-                sFifoWrreq     <= '1';
-                sDataFIFOrdreq <= '1';
-                counterFIFO    := counterFIFO - 1;
-              END IF;
+          bMemNotReg <= SEL_FIFO;
+          cmdState   <= FIFO_ADV;
+          IF (DATA_FIFO_EMPTY = '0') AND (sFifoFull = '0') THEN
+            IF counterFIFO = 0 THEN
+              -- we are done.
+              bMemNotReg <= SEL_REG;
+              cmdState   <= WAIT_CMD;
+            ELSE
+              -- reduce the counter.
+              counterFIFO := counterFIFO - 1;
             END IF;
-          ELSE
-            cmdState <= WAIT_CMD;
           END IF;
 
 --      //// shouldn't happen

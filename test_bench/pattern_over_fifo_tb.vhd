@@ -102,7 +102,7 @@ BEGIN
     WAIT FOR CLK_period*3;
     START <= '0';
     --
-    WAIT FOR CLK_period*521;
+    WAIT FOR CLK_period*523;
     FIFO_RDEN <= '1';
     WAIT FOR CLK_period*1;
     FIFO_RDEN <= '0';
