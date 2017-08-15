@@ -21,16 +21,17 @@
 * Interface
 ** PHY Interface: internal
 ** MAC Speed: 1000Mbps
+** internal mode clock source: user clk2
 ** Management Type: AXI4-Lite, Frequency 125.00MHz
 ** YES MDIO and IO Buffers
 * Features
-** Check Statistics (and Reset) only
+** Check Statistics (64-bit) and Statistics Reset only
 
 ## Generate the project after git clone:
 Make sure there are following lines in config/project.tcl:
 ```
     # Create project
-    create_project top ./
+    create_project top ./ # possibly with -part xcku040-ffva1156-2-e
 ```
 then
 ``` 
@@ -48,3 +49,4 @@ then
     wait_on_run impl_1
     exit
 ```
+```project.tcl``` is generated via File->Write Project Tcl with everything unchecked.
