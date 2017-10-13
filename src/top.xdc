@@ -28,7 +28,8 @@ set_property IOSTANDARD LVDS_25 [get_ports {USER_CLK_P}]
 set_property PACKAGE_PIN M26 [get_ports {USER_CLK_N}]
 set_property IOSTANDARD LVDS_25 [get_ports {USER_CLK_N}]
 
-# clock domain interaction
+# clock domain interaction, must explictly specify all possible pairs.
+# Command with only one `-group' parameter means the clock is asynchronous to all other, including generated from its own, clocks.
 set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks system_clock] -group [get_clocks -include_generated_clocks sys125_clock]
 set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks system_clock] -group [get_clocks -include_generated_clocks user_clock]
 set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks user_clock] -group [get_clocks -include_generated_clocks sys125_clock]
